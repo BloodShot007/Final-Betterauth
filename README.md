@@ -84,14 +84,7 @@ Both will join cerebra_net and BetterAuth will connect to Postgres and expose AP
 
 ---
 
-### 5) Rename the main file
-
-Rename the repo folder name from "Final_Betterauth" to "betterauth-service" to have a hastle free connection over CerebraUI.
-
-
----
-
-### 6) “null value in column id” / sequence mismatch after test data
+### 5) “null value in column id” / sequence mismatch after test data
 
 If you see errors like null value in column "id" (often caused by sequences getting out of sync after manual inserts/deletes), reset the tables and their sequences:
 

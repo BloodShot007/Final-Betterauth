@@ -338,30 +338,218 @@ app.use(express.json());
     }
   });
 
-  app.get('/api/auth/verify', async (req, res) => {
+
+app.get('/api/auth/verify', async (req, res) => {
+  try {
+    const { token, email } = req.query || {};
+    if (!token || !email) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Verification Error</title>
+          <style>
+            body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+            .container { text-align: center; padding: 40px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .error { color: #ef4444; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1 class="error">❌ Verification Error</h1>
+            <p>Missing token or email parameter.</p>
+            <p><a href="${FRONTEND_URL}/auth/login">Return to Login</a></p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    const hashed = hashToken(String(token));
+    const rows = await q(
+      `SELECT 1 FROM verification
+       WHERE identifier = $1 AND value = $2 AND "expiresAt" > NOW()
+       LIMIT 1`,
+      [email, hashed]
+    );
+
+    if (!rows[0]) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Verification Error</title>
+          <style>
+            body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+            .container { text-align: center; padding: 40px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .error { color: #ef4444; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1 class="error">❌ Invalid or Expired Link</h1>
+            <p>This verification link is invalid or has expired.</p>
+            <p><a href="${FRONTEND_URL}/auth/verify-pending?email=${encodeURIComponent(email)}">Request a new verification email</a></p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Update user email verification status
+    await q(`UPDATE "user" SET "emailVerified" = true, "updatedAt" = NOW() WHERE email = $1`, [email]);
+    
+    // Delete the used verification token
+    await q(`DELETE FROM verification WHERE identifier = $1 AND value = $2`, [email, hashed]);
+
+    console.log(`[Email Verification] Success for email: ${email}`);
+
+    // Redirect with success animation
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Email Verified!</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          }
+          .container {
+            text-align: center;
+            padding: 60px 40px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 500px;
+          }
+          .checkmark {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            display: block;
+            stroke-width: 3;
+            stroke: #4ade80;
+            stroke-miterlimit: 10;
+            box-shadow: inset 0px 0px 0px #4ade80;
+            animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+          }
+          .checkmark__circle {
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            stroke-width: 3;
+            stroke-miterlimit: 10;
+            stroke: #4ade80;
+            fill: none;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+          }
+          .checkmark__check {
+            transform-origin: 50% 50%;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+          }
+          @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+          }
+          @keyframes scale {
+            0%, 100% { transform: none; }
+            50% { transform: scale3d(1.1, 1.1, 1); }
+          }
+          @keyframes fill {
+            100% { box-shadow: inset 0px 0px 0px 30px #4ade80; }
+          }
+          h1 { color: #1f2937; margin-bottom: 20px; font-size: 28px; }
+          p { color: #6b7280; margin-bottom: 30px; font-size: 16px; line-height: 1.6; }
+          .redirect-text { color: #9ca3af; font-size: 14px; }
+          .spinner { 
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #a855f7;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+            <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+          </svg>
+          <h1>✅ Email Verified!</h1>
+          <p>
+            Your email has been successfully verified.<br>
+            You can now access all features of your account.
+          </p>
+          <p class="redirect-text">
+            Redirecting to login page<span class="spinner"></span>
+          </p>
+        </div>
+        <script>
+          // Redirect after 3 seconds
+          setTimeout(function() {
+            window.location.href = '${FRONTEND_URL}/auth/login?verified=true';
+          }, 5000);
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (e) {
+    console.error('[Verification Confirm] Error:', e);
+    res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Verification Error</title>
+        <style>
+          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+          .container { text-align: center; padding: 40px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .error { color: #ef4444; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1 class="error">❌ Verification Failed</h1>
+          <p>An error occurred during verification. Please try again.</p>
+          <p><a href="${FRONTEND_URL}/auth/login">Return to Login</a></p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+});
+
+
+///////////////////////////////////////////////////////////////////////////
+  app.get('/api/auth/status', async (req, res) => {
     try {
-      const { token, email } = req.query || {};
-      if (!token || !email) return res.status(400).send('Missing token or email');
+      const email = String(req.query.email || '').toLowerCase().trim();
+      if (!email) return res.status(400).json({ error: '`email` is required' });
 
-      const hashed = hashToken(String(token));
-      const rows = await q(
-        `SELECT 1 FROM verification
-         WHERE identifier = $1 AND value = $2 AND "expiresAt" > NOW()
-         LIMIT 1`,
-        [email, hashed]
-      );
-
-      if (!rows[0]) return res.status(400).send('Invalid or expired token');
-
-      await q(`UPDATE "user" SET "emailVerified" = true, "updatedAt" = NOW() WHERE email = $1`, [email]);
-      await q(`DELETE FROM verification WHERE identifier = $1 AND value = $2`, [email, hashed]);
-
-      res.redirect(`${FRONTEND_URL}/auth/login?verified=true`);
+      const rows = await q('SELECT "emailVerified" FROM "user" WHERE email = $1 LIMIT 1', [email]);
+      const emailVerified = rows?.[0]?.emailVerified === true;
+      res.json({ emailVerified });
     } catch (e) {
-      console.error('[Verification Confirm] Error:', e);
-      res.status(400).send('Verification failed');
+      console.error('[Status] error:', e);
+      res.status(500).json({ error: 'Internal error' });
     }
   });
+///////////////////////////////////////////////////////////////////////////
+
 
   // ---- Session Introspection ----
   app.get('/api/auth/me', async (req, res) => {
