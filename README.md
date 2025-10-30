@@ -31,7 +31,7 @@ SERVICE_PUBLIC_URL="http://localhost:4000"
 
 > Create your account/Login to Resend.com with your personal email where you want to receive the emails for email-verifcation and password-reset.
 
-> After login for the first time, you will see **Add and API Key** option on the dashboard. Copy the API key and paste in on your .env.docker and .env file's **EMAIL_PROVIDER_API_KEY** line.
+> After login for the first time, you will see **Add API Key** option on the dashboard. Copy the API key and paste in on your .env.docker and .env file's **EMAIL_PROVIDER_API_KEY** line.
 
 > Save the .env.docker and .env files
 
@@ -50,6 +50,7 @@ docker network create cerebra_net
 macOS / Linux (zsh/bash):
 
 ```bash
+npm install
 export DATABASE_URL="postgresql://cerebra:cerebra@localhost:5435/cerebra_auth"
 npx @better-auth/cli@latest generate --config ./auth.config.mjs
 npx @better-auth/cli@latest migrate  --config ./auth.config.mjs
@@ -58,6 +59,7 @@ npx @better-auth/cli@latest migrate  --config ./auth.config.mjs
 Windows (PowerShell):
 
 ```bash
+npm install
 $env:DATABASE_URL = "postgresql://cerebra:cerebra@localhost:5435/cerebra_auth"
 npx @better-auth/cli@latest generate --config ./auth.config.mjs
 npx @better-auth/cli@latest migrate  --config ./auth.config.mjs
@@ -89,6 +91,14 @@ Both will join cerebra_net and BetterAuth will connect to Postgres and expose AP
 If you see errors like null value in column "id" (often caused by sequences getting out of sync after manual inserts/deletes), reset the tables and their sequences:
 
 ```sql
+ALTER TABLE verification 
+ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;
+```
+
+
+```sql
 TRUNCATE TABLE "user" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE verification RESTART IDENTITY CASCADE;
+TRUNCATE TABLE account RESTART IDENTITY CASCADE;
+TRUNCATE TABLE "session" RESTART IDENTITY CASCADE;
 ```
